@@ -13,10 +13,12 @@ def summarize_changes(old_text, new_text):
 # Keyword priority scoring
 def score_keywords(text, keywords_with_weights):
     score = 0
+    matched_keywords = []
     for keyword, weight in keywords_with_weights.items():
         if keyword.lower() in text.lower():
             score += weight
-    return score
+            matched_keywords.append(keyword)
+    return score, matched_keywords
 
 # Monitor a webpage for changes
 def monitor_page(url, keywords_with_weights, previous_hash=None, previous_text=""):
@@ -29,17 +31,17 @@ def monitor_page(url, keywords_with_weights, previous_hash=None, previous_text="
 
         if previous_hash and current_hash != previous_hash:
             summary = summarize_changes(previous_text, text)
-            score = score_keywords(text, keywords_with_weights)
-            return current_hash, text, summary, score
+            score, matched_keywords = score_keywords(text, keywords_with_weights)
+            return current_hash, text, summary, score, matched_keywords
         elif not previous_hash:
-            return current_hash, text, "Initial content fetched. No previous version to compare.", 0
+            return current_hash, text, "Initial content fetched. No previous version to compare.", 0, []
         else:
-            return current_hash, text, "No change detected.", 0
+            return current_hash, text, "No change detected.", 0, []
     except Exception as e:
-        return previous_hash, previous_text, f"Error fetching the page: {e}", 0
+        return previous_hash, previous_text, f"Error fetching the page: {e}", 0, []
 
 # Streamlit UI
-st.title("Web Page Change Monitor")
+st.title("Web Page Change Monitor with Keyword Scoring")
 
 url = st.text_input("Enter the website URL to monitor:")
 keywords_input = st.text_area("Enter keywords and weights (e.g., press release:5, Gabon:3):")
@@ -58,7 +60,7 @@ if st.button("Monitor Page"):
                 keyword, weight = item.split(":")
                 keywords_with_weights[keyword.strip()] = int(weight.strip())
 
-        new_hash, new_text, summary, score = monitor_page(
+        new_hash, new_text, summary, score, matched_keywords = monitor_page(
             url,
             keywords_with_weights,
             st.session_state.previous_hash,
@@ -73,5 +75,9 @@ if st.button("Monitor Page"):
 
         st.subheader("Priority Score")
         st.write(score)
+
+        st.subheader("Matched Keywords")
+        st.write(", ".join(matched_keywords) if matched_keywords else "No keywords matched.")
     else:
         st.warning("Please enter both the URL and keywords.")
+
